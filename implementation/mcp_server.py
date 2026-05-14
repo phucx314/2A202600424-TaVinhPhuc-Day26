@@ -20,6 +20,9 @@ import sys
 import os
 from pathlib import Path
 
+# Fix: Disable FastMCP ASCII banner which corrupts stdio
+os.environ["FASTMCP_LOG_LEVEL"] = "ERROR"
+
 from fastmcp import FastMCP, Context
 
 # ---------------------------------------------------------------------------
@@ -183,8 +186,8 @@ if __name__ == "__main__":
         print(f"[AUTH] Enabled Bearer token auth for {args.transport} transport.")
 
     if args.transport == "stdio":
-        mcp.run(transport="stdio")
+        mcp.run(transport="stdio", show_banner=False)
     elif args.transport == "sse":
-        mcp.run(transport="sse", host=args.host, port=args.port)
+        mcp.run(transport="sse", host=args.host, port=args.port, show_banner=False)
     else:
-        mcp.run(transport="http", host=args.host, port=args.port)
+        mcp.run(transport="http", host=args.host, port=args.port, show_banner=False)
