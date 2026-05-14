@@ -319,3 +319,27 @@ python mcp_server.py --transport sse --port 8000
 python verify_server.py    # 29/29 checks: DB, search, insert, aggregate, errors, schema
 python -m pytest tests/ -v # 47/47 unit tests: all modules, all operators, all edge cases
 ```
+
+---
+
+## Demo Screenshots
+
+The following screenshots demonstrate the server successfully running and connecting to the MCP Inspector:
+
+### 1. Tool Discovery & Connection
+![Tool Discovery](assets/1_discovery.png)
+
+### 2. Database Schema Resource
+![Schema Resource](assets/2_schema.png)
+
+### 3. Successful Tool Call (`search`)
+![Search Success](assets/3_search_success.png)
+
+### 4. Failing Tool Call (Error Handling)
+![Search Error](assets/4_search_error.png)
+
+### 5. Aggregate Tool (Bonus)
+![Aggregate Success](assets/5_aggregate.png)
+
+### 6. Insert Tool (Data Mutation)
+![Insert Success](assets/6_insert.png)
