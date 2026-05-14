@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # start_inspector.sh — Launch MCP Inspector against this server.
 # Usage: ./start_inspector.sh
+#
+# NOTE: The path to this project contains spaces ("Code Base"), which causes
+# the MCP Inspector's argument parser to split the path incorrectly.
+# To work around this, we create a temporary wrapper script in /tmp (no spaces).
 
 set -e
 
@@ -19,13 +23,20 @@ if [ ! -f "$SCRIPT_DIR/lab.db" ]; then
   "$VENV_PYTHON" "$SCRIPT_DIR/init_db.py"
 fi
 
+# Create a wrapper script in /tmp to avoid path-with-spaces issue
+WRAPPER="/tmp/mcp_lab26_server.sh"
+cat > "$WRAPPER" << WRAPPER_EOF
+#!/usr/bin/env bash
+exec "$VENV_PYTHON" "$SCRIPT_DIR/mcp_server.py" "\$@"
+WRAPPER_EOF
+chmod +x "$WRAPPER"
+
 echo "[inspector] Starting MCP Inspector..."
-echo "[inspector] Server: $VENV_PYTHON $SCRIPT_DIR/mcp_server.py"
+echo "[inspector] Wrapper: $WRAPPER"
 echo ""
 echo "Open the Inspector URL shown below in your browser."
 echo ""
 
 mkdir -p "$SCRIPT_DIR/.npm-cache"
 NPM_CONFIG_CACHE="$SCRIPT_DIR/.npm-cache" \
-  npx -y @modelcontextprotocol/inspector \
-    "$VENV_PYTHON" "$SCRIPT_DIR/mcp_server.py"
+  npx -y @modelcontextprotocol/inspector "$WRAPPER"

@@ -29,6 +29,8 @@ except ImportError:
 # Constants
 # ---------------------------------------------------------------------------
 
+DB_PATH = Path(__file__).parent / "lab.db"
+
 ALLOWED_METRICS = {"count", "avg", "sum", "min", "max"}
 ALLOWED_OPERATORS = {"eq", "neq", "gt", "gte", "lt", "lte", "like", "in"}
 

@@ -17,6 +17,7 @@ Exit code 0 = all checks passed. Non-zero = failures detected.
 
 import json
 import sys
+import time
 from pathlib import Path
 
 # Ensure implementation/ is importable
@@ -114,7 +115,7 @@ print(f"\n{BOLD}[4] Tool: insert (happy path){RESET}")
 
 new_student = {
     "name": "Zara Test",
-    "email": "zara.verify@example.com",
+    "email": f"zara.verify.{int(time.time())}@example.com",
     "cohort": "B3",
     "score": 77.7,
 }

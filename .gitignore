@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Database (generated, not source)
+*.db
+*.sqlite
+*.sqlite3
+
+# npm / inspector cache
+node_modules/
+implementation/.npm-cache/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

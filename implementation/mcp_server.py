@@ -21,7 +21,6 @@ import os
 from pathlib import Path
 
 from fastmcp import FastMCP, Context
-from fastmcp.exceptions import McpError
 
 # ---------------------------------------------------------------------------
 # Local imports
@@ -165,7 +164,7 @@ if __name__ == "__main__":
     parser.add_argument("--transport", choices=["stdio", "sse", "http"], default="stdio")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     # If auth is enabled, wrap the ASGI app (for SSE/HTTP) with Starlette auth middleware
     if AUTH_TOKEN and args.transport in ("sse", "http"):
