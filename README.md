@@ -1,181 +1,321 @@
-# Lab: Build a Database MCP Server with FastMCP and SQLite
+# Lab 26 — Database MCP Server with FastMCP & SQLite
 
-## Goal
+> **Student:** 2A202600424 — Tạ Vĩnh Phúc  
+> **Lab:** Day 26 — Build a Database MCP Server
 
-Build a Model Context Protocol (MCP) server using FastMCP that exposes a small database through:
+A production-quality MCP server built with **FastMCP 3.x** and **SQLite**, exposing a student-course database through three tools and two schema resources.
 
-- `search`
-- `insert`
-- `aggregate`
+---
 
-You must also expose the database schema as an MCP resource, test the server with Inspector or equivalent tooling, and show the server working from at least one MCP client.
+## Features at a glance
 
-## Learning Outcomes
+| Component | Detail |
+|---|---|
+| **Tools** | `search`, `insert`, `aggregate` |
+| **Resources** | `schema://database`, `schema://table/{table_name}` |
+| **Transport** | stdio (default), SSE, HTTP |
+| **Safety** | Identifier whitelist validation, parameterized SQL, operator allowlist |
+| **Pagination** | `limit`, `offset`, `has_more`, `next_offset` on every `search` |
+| **Tests** | 47 pytest unit tests + 29 automated verification checks |
 
-By the end of this lab, students should be able to:
+---
 
-- explain what MCP tools and resources are
-- build a FastMCP server in Python
-- connect FastMCP to a SQLite database
-- safely validate database requests before executing SQL
-- expose dynamic schema context through `@mcp.resource(...)`
-- test tool schemas, normal calls, and error responses
-- connect the server to an MCP client such as Claude Code, Codex, or Gemini CLI
+## Project structure
 
-## Required Features
-
-### Part 1: MCP Server
-
-Implement a FastMCP server that exposes exactly these tool categories:
-
-1. `search`
-2. `insert`
-3. `aggregate`
-
-Your server may use SQLite for the main implementation. If you want to support PostgreSQL too, design the code so the database layer can be swapped later.
-
-### Part 2: Resource
-
-Expose database schema information as MCP resources:
-
-- one resource for the full database schema
-- one dynamic resource template for a single table schema
-
-Suggested URIs:
-
-- `schema://database`
-- `schema://table/{table_name}`
-
-### Part 3: Validation and Error Handling
-
-Your tools must reject unsafe or invalid requests:
-
-- unknown table names
-- unknown column names
-- unsupported filter operators
-- invalid aggregate requests
-- empty inserts
-
-Do not build SQL by blindly concatenating raw user input.
-
-### Part 4: Testing and Verification
-
-Verify all of the following:
-
-1. the server starts correctly
-2. the three tools are discoverable
-3. the schema resource is discoverable
-4. valid tool calls return useful results
-5. invalid tool calls return clear errors
-6. at least one MCP client can connect and use the server
-
-### Part 5: Demo Deliverables
-
-Prepare:
-
-- GitHub repository
-- setup instructions
-- tool descriptions
-- testing steps
-- at least one client configuration example
-- short demo video, around 2 minutes
-
-Inspector screenshots are recommended if you use MCP Inspector.
-
-## Suggested Project Structure
-
-```text
+```
 implementation/
-  db.py
-  init_db.py
-  mcp_server.py
-  verify_server.py
-  tests/
-    test_server.py
+├── db.py              # SQLiteAdapter — all database logic and validation
+├── init_db.py         # Creates schema and seeds data
+├── mcp_server.py      # FastMCP server (tools + resources)
+├── verify_server.py   # Automated verification script (29 checks)
+├── start_inspector.sh # Launches MCP Inspector in one command
+├── lab.db             # SQLite database (auto-created)
+└── tests/
+    └── test_server.py # 47 pytest unit tests
 ```
 
-## Recommended Data Model
+---
 
-Use a small relational dataset so `search`, `insert`, and `aggregate` are easy to demo. Example:
+## Quick start
 
-- `students`
-- `courses`
-- `enrollments`
+### 1 — Create and activate the virtual environment
 
-## Example Tasks to Demonstrate
+```bash
+cd 2A202600424-TaVinhPhuc-Day26
+python3 -m venv .venv
+source .venv/bin/activate
+pip install fastmcp pytest
+```
 
-- search all students in cohort `A1`
-- insert a new student
-- count rows in a table
-- compute average score by cohort
-- read the full schema resource
-- read `schema://table/students`
-- show an invalid request, such as searching a missing table
+### 2 — Initialize the database
 
-## FastMCP and Inspector References
+```bash
+cd implementation
+python init_db.py
+# [init_db] Database ready at: .../implementation/lab.db
+```
 
-- FastMCP quickstart: https://gofastmcp.com/v2/getting-started/quickstart
-- FastMCP resources: https://gofastmcp.com/v2/servers/resources
-- MCP Inspector: https://modelcontextprotocol.io/docs/tools/inspector
+This creates three tables with seed data:
 
-## Client Setup Notes
+| Table | Rows | Description |
+|---|---|---|
+| `students` | 10 | name, email, cohort, score |
+| `courses` | 5 | code, title, credits, instructor |
+| `enrollments` | 12 | student_id, course_id, grade, status |
 
-### Claude Code
+### 3 — Run automated verification
 
-Anthropic documents local JSON config and `claude mcp add` flows here:
+```bash
+python verify_server.py
+# === Results: 29/29 checks passed ===
+```
 
-- https://code.claude.com/docs/en/mcp
+### 4 — Run unit tests
 
-Claude Code supports MCP resources via `@server:resource-uri` references and supports environment variable expansion in `.mcp.json`.
+```bash
+python -m pytest tests/ -v
+# 47 passed in 0.15s
+```
 
-### Codex
+### 5 — Start the server (stdio)
 
-OpenAI documents Codex MCP setup here:
+```bash
+python mcp_server.py
+# Server runs in stdio mode, ready for MCP clients
+```
 
-- https://developers.openai.com/learn/docs-mcp
+---
 
-Codex supports MCP server configuration through the CLI and `~/.codex/config.toml`.
+## Tool reference
+
+### `search`
+
+Query rows from any table with optional filtering, column selection, ordering, and pagination.
+
+```json
+{
+  "table": "students",
+  "filters": {"cohort": {"eq": "A1"}, "score": {"gte": 80}},
+  "columns": ["name", "score"],
+  "order_by": "score",
+  "descending": true,
+  "limit": 5,
+  "offset": 0
+}
+```
+
+**Supported filter operators:** `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `in`
+
+**Returns:**
+```json
+{
+  "table": "students",
+  "rows": [{"name": "Iris Nguyen", "score": 99.0}, ...],
+  "total_returned": 2,
+  "limit": 5,
+  "offset": 0,
+  "has_more": false,
+  "next_offset": null
+}
+```
+
+---
+
+### `insert`
+
+Insert a new row into a table. Returns the full stored record (including auto-generated `id`).
+
+```json
+{
+  "table": "students",
+  "values": {
+    "name": "Zara Demo",
+    "email": "zara@example.com",
+    "cohort": "B3",
+    "score": 88.5
+  }
+}
+```
+
+**Returns:**
+```json
+{
+  "table": "students",
+  "inserted": {"id": 11, "name": "Zara Demo", "cohort": "B3", "score": 88.5, ...}
+}
+```
+
+---
+
+### `aggregate`
+
+Run `count`, `avg`, `sum`, `min`, or `max` queries with optional filters and group-by.
+
+```json
+{"table": "students", "metric": "count"}
+{"table": "students", "metric": "avg", "column": "score", "group_by": "cohort"}
+{"table": "enrollments", "metric": "min", "column": "grade", "filters": {"status": {"eq": "active"}}}
+```
+
+**Returns:**
+```json
+{
+  "table": "students",
+  "metric": "avg",
+  "column": "score",
+  "group_by": "cohort",
+  "results": [
+    {"cohort": "A1", "value": 88.16},
+    {"cohort": "A2", "value": 73.25},
+    ...
+  ]
+}
+```
+
+---
+
+## Resources
+
+### `schema://database`
+
+Returns the full schema for all tables as JSON. Use this to discover available tables and columns before querying.
+
+### `schema://table/{table_name}`
+
+Returns schema for a single table.
+
+Example: `schema://table/students` →
+```json
+{
+  "table": "students",
+  "columns": [
+    {"cid": 0, "name": "id", "type": "INTEGER", "primary_key": true},
+    {"cid": 1, "name": "name", "type": "TEXT", "notnull": true},
+    ...
+  ]
+}
+```
+
+---
+
+## Error handling
+
+All tools reject unsafe or invalid input:
+
+| Error case | Response |
+|---|---|
+| Unknown table name | `{"error": "Unknown table 'xyz'. Allowed: [...]"}` |
+| Unknown column name | `{"error": "Unknown column 'xyz' in table '...'. Allowed: [...]"}` |
+| Unsupported operator | `{"error": "Unsupported operator 'drop_table'. Allowed: [...]"}` |
+| Unsupported metric | `{"error": "Unsupported metric 'xyz'. Allowed: [...]"}` |
+| Empty insert | `{"error": "'values' must not be empty."}` |
+| avg/sum/min/max without column | `{"error": "Metric 'avg' requires a 'column' argument."}` |
+
+No raw user input is ever concatenated into SQL — all values use parameterized queries and all identifiers are validated against a live whitelist.
+
+---
+
+## MCP Inspector
+
+```bash
+cd implementation
+./start_inspector.sh
+```
+
+Or manually:
+```bash
+mkdir -p .npm-cache
+NPM_CONFIG_CACHE="$PWD/.npm-cache" npx -y @modelcontextprotocol/inspector \
+  /ABSOLUTE/PATH/TO/.venv/bin/python \
+  /ABSOLUTE/PATH/TO/implementation/mcp_server.py
+```
+
+Inspector checklist:
+- [ ] 3 tools visible: `search`, `insert`, `aggregate`
+- [ ] 2 resources visible: `schema://database`, `schema://table/{table_name}`
+- [ ] Valid `search` call returns rows
+- [ ] Invalid table name returns clear error
+
+---
+
+## Client configuration
 
 ### Gemini CLI
 
-Gemini CLI has a built-in MCP manager. In the verified local workflow, the simplest path is:
-
 ```bash
-gemini mcp add sqlite-lab /ABSOLUTE/PATH/TO/python /ABSOLUTE/PATH/TO/implementation/mcp_server.py --description "SQLite lab FastMCP server" --timeout 10000
+gemini mcp add sqlite-lab \
+  /home/phucx314/Documents/Code\ Base/ai20k/day026/2A202600424-TaVinhPhuc-Day26/.venv/bin/python \
+  /home/phucx314/Documents/Code\ Base/ai20k/day026/2A202600424-TaVinhPhuc-Day26/implementation/mcp_server.py \
+  --description "SQLite Lab FastMCP server" \
+  --timeout 10000
+
+# Verify connection
 gemini mcp list
+
+# Smoke test
+gemini --allowed-mcp-server-names sqlite-lab --yolo \
+  -p "Use the sqlite-lab MCP server. Show me the top 3 students by score descending."
 ```
 
-Gemini CLI also documents configuration details here:
+### Claude Code (`.mcp.json`)
 
-- https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md
+```json
+{
+  "mcpServers": {
+    "sqlite-lab": {
+      "type": "stdio",
+      "command": "/home/phucx314/Documents/Code Base/ai20k/day026/2A202600424-TaVinhPhuc-Day26/.venv/bin/python",
+      "args": [
+        "/home/phucx314/Documents/Code Base/ai20k/day026/2A202600424-TaVinhPhuc-Day26/implementation/mcp_server.py"
+      ],
+      "env": {}
+    }
+  }
+}
+```
 
-Expected outcome:
+After connecting, Claude Code can reference:
+- `@sqlite-lab:schema://database` to read the full schema
+- `@sqlite-lab:schema://table/students` for a specific table
 
-- the server appears as `Connected`
-- Gemini can discover `search`, `insert`, and `aggregate`
-- a headless smoke test works with `gemini --allowed-mcp-server-names sqlite-lab --yolo -p "..."`
+---
 
-### Antigravity
+## Example demo tasks
 
-Antigravity commonly uses an `mcp_config.json` file with a shape similar to Gemini CLI. Verify the current product behavior in your installed version before grading against exact UI steps.
+```
+# 1. Search students in cohort A1 with score >= 80
+search: table=students, filters={cohort: {eq: A1}, score: {gte: 80}}, order_by=score, descending=true
 
-## Deliverable Checklist
+# 2. Insert a new student
+insert: table=students, values={name: "Zara", email: "zara@demo.com", cohort: "B1", score: 91.0}
 
-- working FastMCP server
-- SQLite database and seed data
-- `search`, `insert`, `aggregate` tools
-- schema resource and schema resource template
-- verification steps
-- automated tests or repeatable verification script
-- client configuration example
-- README with setup and demo steps
-- Inspector startup command or helper script
-- at least one verified Gemini CLI or Claude/Codex client test
+# 3. Count students per cohort
+aggregate: table=students, metric=count, group_by=cohort
 
-## Bonus
+# 4. Average grade for active enrollments
+aggregate: table=enrollments, metric=avg, column=grade, filters={status: {eq: active}}
 
-Optional bonus:
+# 5. Read full schema
+resource: schema://database
 
-- add authentication for SSE or HTTP transport
-- support both SQLite and PostgreSQL with the same MCP surface
-- add richer output annotations or pagination
+# 6. Error case — unknown table
+search: table=nonexistent_table  → error response
+```
+
+---
+
+## Running with SSE transport (optional)
+
+```bash
+python mcp_server.py --transport sse --port 8000
+# Server starts at http://localhost:8000/sse
+```
+
+---
+
+## Verification summary
+
+```bash
+python verify_server.py    # 29/29 checks: DB, search, insert, aggregate, errors, schema
+python -m pytest tests/ -v # 47/47 unit tests: all modules, all operators, all edge cases
+```
